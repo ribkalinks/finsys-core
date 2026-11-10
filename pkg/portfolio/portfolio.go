@@ -16,7 +16,6 @@ func CalculateSampleCovariance(returnsA, returnsB []decimal.Decimal) (decimal.De
 		return decimal.Zero, fmt.Errorf("jumlah data return harus lebih dari 1 untuk menghitung sampel kovarians")
 	}
 
-	// 1. Hitung Mean A dan Mean B
 	sumA := decimal.Zero
 	sumB := decimal.Zero
 	for i := 0; i < n; i++ {
@@ -27,7 +26,6 @@ func CalculateSampleCovariance(returnsA, returnsB []decimal.Decimal) (decimal.De
 	meanA := sumA.Div(nDec)
 	meanB := sumB.Div(nDec)
 
-	// 2. Hitung Sum of Products of Deviations: Σ(A_i - meanA)(B_i - meanB)
 	sumProduct := decimal.Zero
 	for i := 0; i < n; i++ {
 		devA := returnsA[i].Sub(meanA)
@@ -35,14 +33,13 @@ func CalculateSampleCovariance(returnsA, returnsB []decimal.Decimal) (decimal.De
 		sumProduct = sumProduct.Add(devA.Mul(devB))
 	}
 
-	// 3. Bagi dengan (n - 1)
 	nMinusOne := decimal.NewFromInt(int64(n - 1))
 	cov := sumProduct.Div(nMinusOne)
 
 	return cov, nil
 }
 
-// CalculateVariance menghitung total varians portofolio berdasarkan matriks kovarians antar aset:
+// CalculatePortfolioVariance menghitung total varians portofolio berdasarkan matriks kovarians antar aset:
 // σ²_p = Σ Σ w_i * w_j * Cov(i, j)
 func CalculatePortfolioVariance(weights []decimal.Decimal, covMatrix [][]decimal.Decimal) (decimal.Decimal, error) {
 	n := len(weights)
@@ -59,11 +56,40 @@ func CalculatePortfolioVariance(weights []decimal.Decimal, covMatrix [][]decimal
 			return decimal.Zero, fmt.Errorf("matriks kovarians baris ke-%d tidak simetris (ukuran %d vs %d)", i, len(covMatrix[i]), n)
 		}
 		for j := 0; j < n; j++ {
-			// w_i * w_j * Cov(i, j)
 			term := weights[i].Mul(weights[j]).Mul(covMatrix[i][j])
 			totalVariance = totalVariance.Add(term)
 		}
 	}
 
 	return totalVariance, nil
+}
+
+// CalculateBeta menghitung nilai Beta (β) aset terhadap pasar:
+// β = Cov(R_i, R_m) / Var(R_m)
+func CalculateBeta(assetReturns, marketReturns []decimal.Decimal) (decimal.Decimal, error) {
+	cov, err := CalculateSampleCovariance(assetReturns, marketReturns)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("gagal menghitung kovarians aset dan pasar: %w", err)
+	}
+
+	marketVariance, err := CalculateSampleCovariance(marketReturns, marketReturns)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("gagal menghitung varians pasar: %w", err)
+	}
+
+	if marketVariance.IsZero() {
+		return decimal.Zero, fmt.Errorf("varians pasar tidak boleh nol (tidak ada volatilitas pasar)")
+	}
+
+	beta := cov.Div(marketVariance)
+	return beta, nil
+}
+
+// CalculateCAPMExpectedReturn menghitung expected return menggunakan Capital Asset Pricing Model (CAPM):
+// E(R_i) = R_f + β * (E(R_m) - R_f)
+func CalculateCAPMExpectedReturn(riskFreeRate, marketExpectedReturn, beta decimal.Decimal) decimal.Decimal {
+	marketRiskPremium := marketExpectedReturn.Sub(riskFreeRate)
+	systematicRiskReturn := beta.Mul(marketRiskPremium)
+	expectedReturn := riskFreeRate.Add(systematicRiskReturn)
+	return expectedReturn
 }
