@@ -93,3 +93,35 @@ func CalculateCAPMExpectedReturn(riskFreeRate, marketExpectedReturn, beta decima
 	expectedReturn := riskFreeRate.Add(systematicRiskReturn)
 	return expectedReturn
 }
+
+// CalculateSharpeRatio menghitung rasio pengembalian terhadap total volatilitas (risiko total):
+// Sharpe Ratio = (R_p - R_f) / σ_p
+func CalculateSharpeRatio(portfolioReturn, riskFreeRate, portfolioStdDev decimal.Decimal) (decimal.Decimal, error) {
+	if portfolioStdDev.IsZero() {
+		return decimal.Zero, fmt.Errorf("standar deviasi portofolio tidak boleh nol")
+	}
+
+	excessReturn := portfolioReturn.Sub(riskFreeRate)
+	sharpe := excessReturn.Div(portfolioStdDev)
+	return sharpe, nil
+}
+
+// CalculateTreynorRatio menghitung rasio pengembalian terhadap risiko sistematis (Beta):
+// Treynor Ratio = (R_p - R_f) / β_p
+func CalculateTreynorRatio(portfolioReturn, riskFreeRate, portfolioBeta decimal.Decimal) (decimal.Decimal, error) {
+	if portfolioBeta.IsZero() {
+		return decimal.Zero, fmt.Errorf("beta portofolio tidak boleh nol")
+	}
+
+	excessReturn := portfolioReturn.Sub(riskFreeRate)
+	treynor := excessReturn.Div(portfolioBeta)
+	return treynor, nil
+}
+
+// CalculateJensensAlpha menghitung abnormal return portofolio dibandingkan ekspektasi CAPM:
+// α = R_p - [R_f + β_p * (E(R_m) - R_f)]
+func CalculateJensensAlpha(portfolioReturn, riskFreeRate, marketExpectedReturn, portfolioBeta decimal.Decimal) decimal.Decimal {
+	expectedReturn := CalculateCAPMExpectedReturn(riskFreeRate, marketExpectedReturn, portfolioBeta)
+	alpha := portfolioReturn.Sub(expectedReturn)
+	return alpha
+}

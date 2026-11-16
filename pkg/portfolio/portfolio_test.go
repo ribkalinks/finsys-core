@@ -83,3 +83,37 @@ func TestCalculateBetaAndCAPM(t *testing.T) {
 		t.Errorf("Expected non-zero CAPM return, got %v", capmReturn)
 	}
 }
+
+func TestRiskAdjustedPerformanceMetrics(t *testing.T) {
+	portfolioReturn := decimal.NewFromFloat(0.15)      // 15%
+	riskFreeRate := decimal.NewFromFloat(0.05)         // 5%
+	marketExpectedReturn := decimal.NewFromFloat(0.12) // 12%
+	portfolioStdDev := decimal.NewFromFloat(0.20)      // 20%
+	portfolioBeta := decimal.NewFromFloat(1.2)         // 1.2
+
+	// 1. Test Sharpe Ratio: (0.15 - 0.05) / 0.20 = 0.50
+	expectedSharpe := decimal.NewFromFloat(0.5)
+	gotSharpe, err := CalculateSharpeRatio(portfolioReturn, riskFreeRate, portfolioStdDev)
+	if err != nil {
+		t.Fatalf("Unexpected error in Sharpe Ratio: %v", err)
+	}
+	if !gotSharpe.Equal(expectedSharpe) {
+		t.Errorf("Expected Sharpe Ratio %v, got %v", expectedSharpe, gotSharpe)
+	}
+
+	// 2. Test Treynor Ratio: (0.15 - 0.05) / 1.2 = 0.083333...
+	gotTreynor, err := CalculateTreynorRatio(portfolioReturn, riskFreeRate, portfolioBeta)
+	if err != nil {
+		t.Fatalf("Unexpected error in Treynor Ratio: %v", err)
+	}
+	if gotTreynor.IsZero() {
+		t.Errorf("Expected non-zero Treynor Ratio, got %v", gotTreynor)
+	}
+
+	// 3. Test Jensen's Alpha: 0.15 - [0.05 + 1.2 * (0.12 - 0.05)] = 0.15 - 0.134 = 0.016
+	expectedAlpha := decimal.NewFromFloat(0.016)
+	gotAlpha := CalculateJensensAlpha(portfolioReturn, riskFreeRate, marketExpectedReturn, portfolioBeta)
+	if !gotAlpha.Equal(expectedAlpha) {
+		t.Errorf("Expected Jensen's Alpha %v, got %v", expectedAlpha, gotAlpha)
+	}
+}
